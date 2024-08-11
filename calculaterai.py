@@ -1,61 +1,54 @@
+import re
 import tkinter as tk
 from tkinter import scrolledtext
 import sympy as sp
-from transformers import pipeline
-import os
-
-# Set up environment variables to manage warnings
-os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
-
-# Define a custom cache directory for transformers
-cache_dir = "./model_cache"
-
-# Initialize the NLP pipeline (cached locally)
-nlp = pipeline("question-answering", model="distilbert-base-cased-distilled-squad", cache_dir=cache_dir, device=0)
 
 def ai_calculator(question):
+    question_lower = question.lower().strip()
+
+    # General Greetings and Identification
+    if any(greet in question_lower for greet in ["hi", "hello", "hey", "greetings"]):
+        return "Hello! How can I assist you today?"
+
+    if "who are you" in question_lower or "what are you" in question_lower:
+        return "I am an AI assistant designed to help you with mathematical queries, general questions, and more!"
+
+    # Arithmetic Handling
     try:
-        # First, attempt to evaluate the expression directly
-        result = eval(question)
-        return result
-    except:
-        # If eval fails, fall back to the previous logic
-        if "plus" in question or "minus" in question or "times" in question or "divided by" in question:
-            expression = question.replace("plus", "+").replace("minus", "-").replace("times", "*").replace("divided by", "/")
-            try:
-                result = eval(expression)
-                return result
-            except:
-                return "Invalid input for arithmetic operation."
+        arithmetic_match = re.search(r'(\d+\s*[\+\-\*/÷]\s*\d+(\s*[\+\-\*/÷]\s*\d+)*)', question_lower)
+        if arithmetic_match:
+            expression = arithmetic_match.group(1).replace('÷', '/')
+            result = eval(expression)
+            return f"The result is {result}"
+    except Exception:
+        pass
 
-        if "square root" in question:
-            number_str = ''.join(filter(str.isdigit, question))
-            if number_str:
-                number = int(number_str)
-                return sp.sqrt(number)
-            else:
-                return "Invalid input for square root."
+    # Handling sequence completion
+    sequence_match = re.search(r'(find|calculate|determine) the (missing|next|following) term[s]? in (?:the )?(?:sequence of )?multiples? of (\d+):? (.*)', question_lower)
+    if sequence_match:
+        base = int(sequence_match.group(4))
+        numbers = list(map(int, re.findall(r'\d+', sequence_match.group(5))))
+        missing_term = numbers[-1] + base
+        return f"The missing term is {missing_term}"
 
-        elif "factorial" in question:
-            number_str = ''.join(filter(str.isdigit, question))
-            if number_str:
-                number = int(number_str)
-                return sp.factorial(number)
-            else:
-                return "Invalid input for factorial."
+    # Handling prime number queries
+    prime_match = re.search(r'(what is|find|calculate) the (next)? prime number (after|following)? (\d+)', question_lower)
+    if prime_match:
+        number = int(prime_match.group(4))
+        next_prime = sp.nextprime(number)
+        return f"The next prime number after {number} is {next_prime}"
 
-        elif "to the power of" in question:
-            parts = question.split()
-            base_str = ''.join(filter(str.isdigit, parts[0]))
-            exp_str = ''.join(filter(str.isdigit, parts[-1]))
-            if base_str and exp_str:
-                base = int(base_str)
-                exponent = int(exp_str)
-                return sp.Pow(base, exponent)
-            else:
-                return "Invalid input for power calculation."
+    # General Mathematical Query Example: Solve 24÷8+2
+    solve_match = re.search(r'(solve|calculate)\s*([\d\+\-\*/÷\s]+)', question_lower)
+    if solve_match:
+        expression = solve_match.group(2).replace('÷', '/')
+        try:
+            result = eval(expression)
+            return f"The result is {result}"
+        except Exception:
+            return "I'm sorry, I couldn't process that calculation."
 
-        return "Sorry, I can't understand the question."
+    return "I'm sorry, I couldn't understand that. Could you please rephrase your question?"
 
 def send_message():
     user_message = entry_field.get()
